@@ -91,3 +91,25 @@ resource "aws_route_table_association" "private_db_1a" {
   subnet_id      = aws_subnet.private_db_1a.id
   route_table_id = aws_route_table.private.id
 }
+
+# セキュリティグループ（SSM対応版）
+resource "aws_security_group" "bastion_sg" {
+  name        = "standard-bation-sg"
+  description = "Security group for bation server using SSM"
+  vpc_id      = aws_vpc.main.id
+
+  # インバウンドルール:【完全に空】
+
+  # アウトバウンドルール:SSmの管理画面と通信するために、外への出口だけ開けておく
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1" # すべての通信を許可
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "standard-bation-sg"
+  }
+}
