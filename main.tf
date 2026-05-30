@@ -113,3 +113,59 @@ resource "aws_security_group" "bastion_sg" {
     Name = "standard-bation-sg"
   }
 }
+
+# Bastion EC2
+# 1. 最新の Amazon Linux 2023 AMI を自動取得
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-minimal-*-x86_64"]
+  }
+}
+
+# 2. SSM接続用のIAMロールとプロファイル
+# EC2が「自分はEC2です」と名乗るためのロール
+resource "aws_iam_role" "bastion_ssm_role" {
+  name = "standard-bastion-ssm-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# ロールに「SSMを使ってもいい」というポリシーを付与
+resource "aws_iam_role_policy_attachment" "bation_ssm_attach" {
+  role       = aws_iam_role.bastion_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInctanceCore"
+}
+
+# 作ったロールをEC2にはめ込める形（インスタンスプロファイル）に変換する
+resource "aws_iam_instance_profile" "bastion_profile" {
+  name = "standard-bastion-instance-profile"
+  role = aws_iam_role.bastion_ssm_role.name
+}
+
+# 3. 踏み台サーバ（EC2本体）の定義
+resource "aws_instance" "bastion" {
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public_1a.id
+  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
+
+  tags = {
+    Name = "standard-bastion-ec2"
+  }
+}
