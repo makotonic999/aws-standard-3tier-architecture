@@ -63,7 +63,7 @@ resource "aws_subnet" "private_app_1a" {
 # 2. データベース (DB) 用サブネット
 resource "aws_subnet" "private_db_1a" {
   vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.20.0/24"
+  cidr_block        = "10.0.30.0/24"
   availability_zone = "ap-northeast-1a"
 
   tags = {
@@ -94,8 +94,8 @@ resource "aws_route_table_association" "private_db_1a" {
 
 # セキュリティグループ（SSM対応版）
 resource "aws_security_group" "bastion_sg" {
-  name        = "standard-bation-sg"
-  description = "Security group for bation server using SSM"
+  name        = "standard-bastion-sg"
+  description = "Security group for bastion server using SSM"
   vpc_id      = aws_vpc.main.id
 
   # インバウンドルール:【完全に空】
@@ -110,7 +110,7 @@ resource "aws_security_group" "bastion_sg" {
   }
 
   tags = {
-    Name = "standard-bation-sg"
+    Name = "standard-bastion-sg"
   }
 }
 
@@ -146,9 +146,9 @@ resource "aws_iam_role" "bastion_ssm_role" {
 }
 
 # ロールに「SSMを使ってもいい」というポリシーを付与
-resource "aws_iam_role_policy_attachment" "bation_ssm_attach" {
+resource "aws_iam_role_policy_attachment" "bastion_ssm_attach" {
   role       = aws_iam_role.bastion_ssm_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInctanceCore"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 # 作ったロールをEC2にはめ込める形（インスタンスプロファイル）に変換する
@@ -167,5 +167,48 @@ resource "aws_instance" "bastion" {
 
   tags = {
     Name = "standard-bastion-ec2"
+  }
+}
+
+# Issue #6: プライベートWeb/APサーバ（EC2）の構築
+# 1. Web/APサーバ用のセキュリティグループ
+resource "aws_security_group" "app_sg" {
+  name        = "standard-app-sg"
+  description = "Security group for internal Web/AP server"
+  vpc_id      = aws_vpc.main.id
+
+  # インバウンドルール
+  ingress {
+    description     = "Allow traffic from Bastion"
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [aws_security_group.bastion_sg.id]
+  }
+
+  # アウトバウンドルール
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "standard-app-sg"
+  }
+}
+
+# 2. Web/APサーバ（EC2本体）の定義
+resource "aws_instance" "app" {
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.private_app_1a.id
+  vpc_security_group_ids = [aws_security_group.app_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
+
+  tags = {
+    Name = "standard-app-ec2"
   }
 }
