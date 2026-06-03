@@ -1,11 +1,5 @@
-variable "db_username" {
-  description = "RDSのマスタユーザ名"
-  type        = string
-  default     = "admin"
-}
-
+variable "db_username" { type = string }
 variable "db_password" {
-  description = "RDSのマスタパスワード"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
