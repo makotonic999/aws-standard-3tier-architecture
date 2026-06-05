@@ -21,8 +21,18 @@ Terraformを活用したAWS 3層アーキテクチャのプロビジョニング
 - AWS CLI version: 2.34.41
 
 ## アーキテクチャ図
-![image_f2c0b9.png](image_f2c0b9.png)
+graph TD
+    subgraph VPC
+        InternetGateway --> PublicSubnet[Public Subnet]
+        PublicSubnet --> EC2[EC2 Instance]
+        
+        subgraph PrivateSubnet[Private Subnet]
+            EC2 --> RDS[(RDS MySQL)]
+        end
+    end
 
+    style RDS fill:#f9f,stroke:#333,stroke-width:2px
+    style EC2 fill:#bbf,stroke:#333,stroke-width:2px
 ## 構築手順
 1. `terraform init` を実行
 2. `terraform apply` で環境構築
