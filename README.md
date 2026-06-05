@@ -21,6 +21,7 @@ Terraformを活用したAWS 3層アーキテクチャのプロビジョニング
 - AWS CLI version: 2.34.41
 
 ## アーキテクチャ図
+```mermaid
 graph TD
     subgraph VPC
         InternetGateway --> PublicSubnet[Public Subnet]
@@ -33,6 +34,7 @@ graph TD
 
     style RDS fill:#f9f,stroke:#333,stroke-width:2px
     style EC2 fill:#bbf,stroke:#333,stroke-width:2px
+```
 ## 構築手順
 1. `terraform init` を実行
 2. `terraform apply` で環境構築
