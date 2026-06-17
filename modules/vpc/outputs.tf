@@ -22,3 +22,8 @@ output "private_db_subnet_1c_id" {
   description = "The ID of the private db subnet in 1c"
   value       = aws_subnet.private_db_1c.id
 }
+
+output "default_security_group_id" {
+  value       = aws_vpc.main.default_security_group_id
+  description = "The ID of the default security group for the VPC"
+}
