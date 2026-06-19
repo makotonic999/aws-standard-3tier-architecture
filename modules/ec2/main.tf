@@ -36,6 +36,12 @@ resource "aws_iam_role" "bastion_ssm_role" {
   })
 }
 
+# ECRにプッシュできる権限
+resource "aws_iam_role_policy_attachment" "bastion_ecr_attach" {
+  role       = aws_iam_role.bastion_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
+}
+
 # ロールに「SSMを使ってもいい」というポリシーを付与
 resource "aws_iam_role_policy_attachment" "bastion_ssm_attach" {
   role       = aws_iam_role.bastion_ssm_role.name
@@ -138,6 +144,16 @@ resource "aws_instance" "bastion" {
   subnet_id              = var.public_subnet_1a_id
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
+
+  # 起動時に自動でDockerをインストールして動かす
+  user_data = <<-EOF
+  #!/bin/bash
+dnf update -y
+dnf install -y docker git
+systemctl start docker
+systemctl enable docker
+usermod -aG docker ec2-user
+EOF
 
   tags = {
     Name = "standard-bastion-ec2"

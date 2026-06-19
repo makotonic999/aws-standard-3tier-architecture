@@ -8,7 +8,6 @@ module "vpc" {
 }
 
 # 2. EC2 module
-/*
 module "ec2" {
   source = "./modules/ec2"
 
@@ -17,7 +16,6 @@ module "ec2" {
   public_subnet_1a_id      = module.vpc.public_subnet_1a_id
   private_app_subnet_1a_id = module.vpc.private_app_subnet_1a_id
 }
-*/
 
 # 3. RDS module
 module "rds" {
