@@ -57,10 +57,34 @@ resource "aws_ecs_task_definition" "app" {
       
       portMappings = [
         {
-          containerPort = 80
-          hostPort      = 80
+          containerPort = 8080
+          hostPort      = 8080
         }
       ]
     }
   ])
+}
+
+# ==============================================================================
+# 3. ECSクラスター (コンテナを動かす論理的な基盤)
+# ==============================================================================
+resource "aws_ecs_cluster" "main" {
+  name = "standard-ecs-cluster"
+}
+
+# ==============================================================================
+# 4. ECSサービス (設計図を元にコンテナを常時起動・管理する)
+# ==============================================================================
+resource "aws_ecs_service" "app" {
+  name            = "standard-webapp-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.app.arn
+  desired_count   = 1          # 起動するコンテナの数
+  launch_type     = "FARGATE"  # サーバーレスモード
+
+  network_configuration {
+    subnets          = [var.private_app_subnet_1a_id]
+    security_groups  = [var.app_sg_id]
+    assign_public_ip = false # プライベート空間なのでパブリックIPは不要
+  }
 }

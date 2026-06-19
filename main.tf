@@ -35,8 +35,8 @@ module "rds" {
 
 # 4. ECS/ECR module ( コンテナ環境の追加)
 module "ecs" {
-  source = "./modules/ecs"
-
-  # vpc_id              = module.vpc.vpc_id
-  # public_subnet_1a_id = module.vpc.public_subnet_1a_id
+  source                   = "./modules/ecs"
+  vpc_id                   = module.vpc.vpc_id
+  private_app_subnet_1a_id = module.vpc.private_app_subnet_1a_id # 🎯 VPCからリレー
+  app_sg_id                = module.ec2.app_sg_id                # 🎯 EC2側で作ったSGのIDをリレー（※）
 }
