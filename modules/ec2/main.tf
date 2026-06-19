@@ -64,6 +64,13 @@ resource "aws_security_group" "bastion_sg" {
   description = "Security group for bastion server using SSM"
   vpc_id      = var.vpc_id
 
+ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"] # 検証が終わったら消すので、今はこれで確実に開けます
+  }
+
   egress {
     from_port        = 0
     to_port          = 0
@@ -146,14 +153,14 @@ resource "aws_instance" "bastion" {
   iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
 
   # 起動時に自動でDockerをインストールして動かす
-  user_data = <<-EOF
-  #!/bin/bash
-dnf update -y
-dnf install -y docker git
-systemctl start docker
-systemctl enable docker
-usermod -aG docker ec2-user
-EOF
+user_data = <<-EOF
+            #!/bin/bash
+            dnf update -y
+            dnf install -y docker git
+            systemctl start docker
+            systemctl enable docker
+            usermod -aG docker ec2-user
+            EOF
 
   tags = {
     Name = "standard-bastion-ec2"
