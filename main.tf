@@ -18,6 +18,7 @@ module "ec2" {
 }
 
 # 3. RDS module
+/*
 module "rds" {
   source = "./modules/rds"
 
@@ -32,6 +33,7 @@ module "rds" {
   db_username = var.db_username
   db_password = var.db_password
 }
+*/
 
 # 4. ECS/ECR module ( コンテナ環境の追加)
 module "ecs" {
