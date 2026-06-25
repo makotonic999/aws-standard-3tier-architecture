@@ -40,5 +40,8 @@ module "ecs" {
   source                   = "./modules/ecs"
   vpc_id                   = module.vpc.vpc_id
   private_app_subnet_1a_id = module.vpc.private_app_subnet_1a_id # 🎯 VPCからリレー
-  app_sg_id                = module.ec2.app_sg_id                # 🎯 EC2側で作ったSGのIDをリレー（※）
+  app_sg_id                = module.ec2.app_sg_id
+  ecr_api_endpoint_id = module.vpc.ecr_api_endpoint_id
+  ecr_dkr_endpoint_id = module.vpc.ecr_dkr_endpoint_id
+  s3_endpoint_id      = module.vpc.s3_endpoint_id              # 🎯 EC2側で作ったSGのIDをリレー（※）
 }

@@ -112,3 +112,56 @@ resource "aws_route_table_association" "private_db_1c" {
   subnet_id      = aws_subnet.private_db_1c.id
   route_table_id = aws_route_table.private.id
 }
+
+# ECR API 用のVPCエンドポイント
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.ap-northeast-1.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  
+  # プライベートサブネットを紐付ける
+  subnet_ids          = [aws_subnet.private_app_1a.id]
+  
+  # セキュリティグループ
+  # security_group_ids  = [aws_security_group.default.id]
+
+  private_dns_enabled = true
+
+  tags = {
+    Name = "ecs-standard-ecr-api-endpoint"
+  }
+}
+
+# ECR DKR 用のVPCエンドポイント（実際のイメージをダウンロードする通路）
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.ap-northeast-1.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private_app_1a.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "ecs-standard-ecr-dkr-endpoint"
+  }
+}
+
+# CloudWatch Logs 用のVPCエンドポイント（ログを送り出す通路）
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.ap-northeast-1.logs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private_app_1a.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "ecs-standard-logs-endpoint"
+  }
+}
+
+# 4. Amazon S3 用のVPCエンドポイント（ECRのデータ実体を取りに行く通路）
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.ap-northeast-1.s3"
+  vpc_endpoint_type = "Gateway" 
+  route_table_ids   = [aws_vpc.main.id] 
+}

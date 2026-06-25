@@ -87,4 +87,10 @@ resource "aws_ecs_service" "app" {
     security_groups  = [var.app_sg_id]
     assign_public_ip = false # プライベート空間なのでパブリックIPは不要
   }
+
+  depends_on = [
+    var.ecr_api_endpoint_id,
+    var.ecr_dkr_endpoint_id,
+    var.s3_endpoint_id
+  ]
 }
