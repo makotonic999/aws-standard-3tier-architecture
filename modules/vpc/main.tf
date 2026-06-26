@@ -113,6 +113,33 @@ resource "aws_route_table_association" "private_db_1c" {
   route_table_id = aws_route_table.private.id
 }
 
+# VPCエンドポイント専用のセキュリティグループ（VPC内部からの443通信を許可）
+resource "aws_security_group" "vpc_endpoint" {
+  name        = "standard-vpc-endpoint-sg"
+  description = "Allow HTTPS inbound traffic from VPC"
+  vpc_id      = aws_vpc.main.id
+
+  # インバウンド（入ってくる通信）: VPC内のセグメント全体から443番ポートへのアクセスを許可
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  # アウトバウンド（出ていく通信）: 基本全開
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "standard-vpc-endpoint-sg"
+  }
+}
+
 # ECR API 用のVPCエンドポイント
 resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id              = aws_vpc.main.id
@@ -123,7 +150,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   subnet_ids          = [aws_subnet.private_app_1a.id]
   
   # セキュリティグループ
-  # security_group_ids  = [aws_security_group.default.id]
+  security_group_ids  = [aws_security_group.vpc_endpoint.id]
 
   private_dns_enabled = true
 
@@ -139,6 +166,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [aws_subnet.private_app_1a.id]
   private_dns_enabled = true
+  security_group_ids  = [aws_security_group.vpc_endpoint.id]
 
   tags = {
     Name = "ecs-standard-ecr-dkr-endpoint"
@@ -152,6 +180,7 @@ resource "aws_vpc_endpoint" "logs" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [aws_subnet.private_app_1a.id]
   private_dns_enabled = true
+  security_group_ids  = [aws_security_group.vpc_endpoint.id]
 
   tags = {
     Name = "ecs-standard-logs-endpoint"
