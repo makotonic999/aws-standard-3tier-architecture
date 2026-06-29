@@ -60,6 +60,7 @@ resource "aws_ecs_task_definition" "app" {
         {
           containerPort = 8080
           hostPort      = 8080
+          protocol = "tcp"
         }
       ]
     }
@@ -89,9 +90,16 @@ resource "aws_ecs_service" "app" {
     assign_public_ip = false # プライベート空間なのでパブリックIPは不要
   }
 
+  load_balancer {
+    target_group_arn = var.target_group_arn
+    container_name   = "webapp"
+    container_port   = 8080
+  }
+
   depends_on = [
     var.ecr_api_endpoint_id,
     var.ecr_dkr_endpoint_id,
-    var.s3_endpoint_id
+    var.s3_endpoint_id,
+    var.alb_listener_http_arn
   ]
 }

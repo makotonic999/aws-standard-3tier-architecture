@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 # 7. アプリケーションのソースコードをコンテナ内にコピー
-COPY ./app ./app
+COPY . ./app
 
 # 8. コンテナが起動したときに実行するコマンド（Uvicornの起動）
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

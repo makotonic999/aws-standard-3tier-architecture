@@ -8,6 +8,11 @@ output "public_subnet_1a_id" {
   value       = aws_subnet.public_1a.id
 }
 
+output "public_subnet_1c_id" {
+  description = "The ID of the public subnet in 1c"
+  value       = aws_subnet.public_1c.id
+}
+
 output "private_app_subnet_1a_id" {
   description = "The ID of the private app subnet in 1a"
   value       = aws_subnet.private_app_1a.id

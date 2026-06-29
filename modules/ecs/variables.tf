@@ -27,3 +27,12 @@ variable "s3_endpoint_id" {
   type        = string
   description = "The ID of the S3 VPC Endpoint"
 }
+
+variable "target_group_arn" {
+  type        = string
+  description = "ALB Target Group ARN for ECS Service"
+}
+
+variable "alb_listener_http_arn" {
+  type = string
+}
