@@ -9,13 +9,17 @@ resource "aws_lb" "apps" {
 # ターゲットグループ（配送先リスト）
 resource "aws_lb_target_group" "webapp" {
   name        = "tg-standard-webapp"
-  port        = 8080 # コンテナがリッスンしているポート（必要に応じて変更）
+  port        = 8000 # コンテナがリッスンしているポート（必要に応じて変更）
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip" # Fargateの場合は "ip" が必須
 
   health_check {
-    path = "/welcome"
+    path = "/"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 

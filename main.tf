@@ -15,6 +15,7 @@ module "ec2" {
   vpc_id                   = module.vpc.vpc_id
   public_subnet_1a_id      = module.vpc.public_subnet_1a_id
   private_app_subnet_1a_id = module.vpc.private_app_subnet_1a_id
+  alb_security_group_id    = module.alb.alb_security_group_id
 }
 
 # 3. RDS module
@@ -39,7 +40,8 @@ module "rds" {
 module "ecs" {
   source                   = "./modules/ecs"
   vpc_id                   = module.vpc.vpc_id
-  private_app_subnet_1a_id = module.vpc.private_app_subnet_1a_id # 🎯 VPCからリレー
+  private_app_subnet_1a_id = module.vpc.private_app_subnet_1a_id
+  private_app_subnet_1c_id = module.vpc.private_app_subnet_1c_id
   app_sg_id                = module.ec2.app_sg_id
   ecr_api_endpoint_id      = module.vpc.ecr_api_endpoint_id
   ecr_dkr_endpoint_id      = module.vpc.ecr_dkr_endpoint_id

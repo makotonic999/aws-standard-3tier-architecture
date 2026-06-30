@@ -6,13 +6,11 @@ data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
 
-  # 🎯 1. まずは「al2023-ami-20」から始まる年号ベースの標準版候補を広くキャッチ
   filter {
     name   = "name"
     values = ["al2023-ami-20*-x86_64"]
   }
 
-  # 🎯 2.【これが本命】名前に「minimal」や「ecs」が入っているものを「除外」する
   # values の先頭に「!」を付ける、あるいは通常版に必ず含まれる文字列を指定します。
   # 2026年現在のAmazon Linux 2023 標準版の決定的な特徴である「-kernel-」を条件に加えることで、
   # 「al2023-ami-minimal-20...」の形式を100%確実に検索対象から除外（スキップ）します！
@@ -84,6 +82,14 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["0.0.0.0/0"] 
   }
 
+ingress {
+    description = "Allow HTTP traffic on port 8000 from VPC"
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] # 誠さんのVPCのCIDR範囲（もし変えていれば合わせてください）
+  }
+
   egress {
     from_port        = 0
     to_port          = 0
@@ -102,6 +108,14 @@ resource "aws_security_group" "app_sg" {
   name        = "standard-app-sg"
   description = "Security group for internal Web/AP server"
   vpc_id      = var.vpc_id
+
+  ingress {
+    description     = "Allow HTTP traffic from ALB on port 8000"
+    from_port       = 8000
+    to_port         = 8000
+    protocol        = "tcp"
+    security_groups = [var.alb_security_group_id]
+  }
 
   # 踏み台SGからのすべての通信を許可
   ingress {
@@ -180,6 +194,7 @@ resource "aws_instance" "bastion" {
   }
 }
 
+/*
 # Web/APサーバー
 resource "aws_instance" "app" {
   ami                    = data.aws_ami.amazon_linux_2023.id # 🎯 動的一本釣り
@@ -192,3 +207,4 @@ resource "aws_instance" "app" {
     Name = "standard-app-ec2"
   }
 }
+*/

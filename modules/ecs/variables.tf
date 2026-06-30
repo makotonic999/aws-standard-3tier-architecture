@@ -8,6 +8,11 @@ variable "private_app_subnet_1a_id" {
   description = "The ID of the private app subnet for ECS tasks"
 }
 
+variable "private_app_subnet_1c_id" {
+  type        = string
+  description = "The ID of the private app subnet in 1c"
+}
+
 variable "app_sg_id" {
   type        = string
   description = "The ID of the security group for App server / ECS tasks"

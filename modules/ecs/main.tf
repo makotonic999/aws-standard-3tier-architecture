@@ -58,13 +58,27 @@ resource "aws_ecs_task_definition" "app" {
       
       portMappings = [
         {
-          containerPort = 8080
-          hostPort      = 8080
+          containerPort = 8000
+          hostPort      = 8000
           protocol = "tcp"
         }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs_log_group.name
+          "awslogs-region"        = "ap-northeast-1"
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
     }
   ])
+}
+
+resource "aws_cloudwatch_log_group" "ecs_log_group" {
+  name              = "/ecs/standard-webapp"
+  retention_in_days = 7
 }
 
 # ==============================================================================
@@ -85,7 +99,7 @@ resource "aws_ecs_service" "app" {
   launch_type     = "FARGATE"  # サーバーレスモード
 
   network_configuration {
-    subnets          = [var.private_app_subnet_1a_id]
+    subnets          = [var.private_app_subnet_1a_id, var.private_app_subnet_1c_id]
     security_groups  = [var.app_sg_id]
     assign_public_ip = false # プライベート空間なのでパブリックIPは不要
   }
@@ -93,7 +107,7 @@ resource "aws_ecs_service" "app" {
   load_balancer {
     target_group_arn = var.target_group_arn
     container_name   = "webapp"
-    container_port   = 8080
+    container_port   = 8000
   }
 
   depends_on = [

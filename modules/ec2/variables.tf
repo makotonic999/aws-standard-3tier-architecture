@@ -12,3 +12,8 @@ variable "private_app_subnet_1a_id" {
   type        = string
   description = "The ID of the private app subnet 1a"
 }
+
+variable "alb_security_group_id" {
+  type        = string
+  description = "The ID of the ALB security group to allow inbound traffic from"
+}

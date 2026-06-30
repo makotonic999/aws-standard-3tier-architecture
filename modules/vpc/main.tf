@@ -80,6 +80,16 @@ resource "aws_subnet" "private_app_1a" {
   }
 }
 
+resource "aws_subnet" "private_app_1c" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.10.0/24"
+  availability_zone = "ap-northeast-1c"
+
+  tags = {
+    Name = "standard-private-app-1a"
+  }
+}
+
 # 2. データベース (DB) 用サブネット
 resource "aws_subnet" "private_db_1a" {
   vpc_id            = aws_vpc.main.id
