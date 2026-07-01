@@ -1,7 +1,4 @@
-variable "vpc_id" {
-  type        = string
-  description = "The ID of the VPC"
-}
+# modules/ecs/variables
 
 variable "private_app_subnet_1a_id" {
   type        = string

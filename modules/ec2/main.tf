@@ -1,7 +1,8 @@
-# =================================================================
-# 1. 共通データソース（Goの正規表現バグを回避した完璧な動的指定）
-# =================================================================
+# modules/ec2/main.tf
 
+# =================================================================
+# Dynamic AMI Data Source
+# =================================================================
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -11,12 +12,9 @@ data "aws_ami" "amazon_linux_2023" {
     values = ["al2023-ami-20*-x86_64"]
   }
 
-  # values の先頭に「!」を付ける、あるいは通常版に必ず含まれる文字列を指定します。
-  # 2026年現在のAmazon Linux 2023 標準版の決定的な特徴である「-kernel-」を条件に加えることで、
-  # 「al2023-ami-minimal-20...」の形式を100%確実に検索対象から除外（スキップ）します！
   filter {
     name   = "name"
-    values = ["*-kernel-6.*"] # 標準版に含まれるカーネルバージョンをピンポイント指定
+    values = ["*-kernel-6.*"] 
   }
 
   filter {
@@ -26,10 +24,9 @@ data "aws_ami" "amazon_linux_2023" {
 }
 
 # =================================================================
-# 2. IAMロール・プロファイル定義
+# IAM Role 
 # =================================================================
-
-# EC2がSSM（セッションマネージャー）等と通信するための共通ロール
+# for Bastion (SSM, ECR Access)
 resource "aws_iam_role" "bastion_ssm_role" {
   name = "standard-bastion-ssm-role"
 
@@ -47,139 +44,40 @@ resource "aws_iam_role" "bastion_ssm_role" {
   })
 }
 
-# ECRへのアクセス権限
+# =================================================================
+# Policy Attachments
+# =================================================================
+# ECR Access Permissions
 resource "aws_iam_role_policy_attachment" "bastion_ecr_attach" {
   role       = aws_iam_role.bastion_ssm_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
 }
 
-# SSM（Session Manager）のコア権限
+# SSM Core Permissions
 resource "aws_iam_role_policy_attachment" "bastion_ssm_attach" {
   role       = aws_iam_role.bastion_ssm_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# 作成したロールをEC2にアタッチできる形に変換
+# =================================================================
+# Instance Profile for EC2
+# =================================================================
 resource "aws_iam_instance_profile" "bastion_profile" {
   name = "standard-bastion-instance-profile"
   role = aws_iam_role.bastion_ssm_role.name
 }
 
 # =================================================================
-# 3. セキュリティグループ（SG）定義
+# EC2 Instance
 # =================================================================
-
-# 踏み台サーバー用セキュリティグループ
-resource "aws_security_group" "bastion_sg" {
-  name        = "standard-bastion-sg"
-  description = "Security group for bastion server using SSM"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
-  }
-
-ingress {
-    description = "Allow HTTP traffic on port 8000 from VPC"
-    from_port   = 8000
-    to_port     = 8000
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"] # 誠さんのVPCのCIDR範囲（もし変えていれば合わせてください）
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Name = "standard-bastion-sg"
-  }
-}
-
-# Web/APサーバー用セキュリティグループ
-resource "aws_security_group" "app_sg" {
-  name        = "standard-app-sg"
-  description = "Security group for internal Web/AP server"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "Allow HTTP traffic from ALB on port 8000"
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    security_groups = [var.alb_security_group_id]
-  }
-
-  # 踏み台SGからのすべての通信を許可
-  ingress {
-    description     = "Allow traffic from Bastion"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.bastion_sg.id]
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Name = "standard-app-sg"
-  }
-}
-
-# RDS用セキュリティグループ
-resource "aws_security_group" "db_sg" {
-  name        = "standard-db-sg"
-  description = "Security group for RDS MySQL"
-  vpc_id      = var.vpc_id
-
-  # AppサーバーSGからのMySQL（3306）通信のみ許可
-  ingress {
-    description     = "Allow MySQL traffic from App SG"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app_sg.id]
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Name = "standard-db-sg"
-  }
-}
-
-# =================================================================
-# 4. サーバー（EC2）本体定義
-# =================================================================
-
-# 踏み台サーバー
+# Bastion
 resource "aws_instance" "bastion" {
-  ami                    = data.aws_ami.amazon_linux_2023.id # 🎯 動的一本釣り
+  ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = "t3.micro"
   subnet_id              = var.public_subnet_1a_id
-  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+  vpc_security_group_ids = [var.bastion_sg_id]
   iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
 
-  # 起動時に自動で通常版OSにDocker・Gitを仕込む
   user_data = <<-EOF
             #!/bin/bash
             dnf update -y
@@ -193,18 +91,3 @@ resource "aws_instance" "bastion" {
     Name = "standard-bastion-ec2"
   }
 }
-
-/*
-# Web/APサーバー
-resource "aws_instance" "app" {
-  ami                    = data.aws_ami.amazon_linux_2023.id # 🎯 動的一本釣り
-  instance_type          = "t3.micro"
-  subnet_id              = var.private_app_subnet_1a_id
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
-
-  tags = {
-    Name = "standard-app-ec2"
-  }
-}
-*/

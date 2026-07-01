@@ -1,3 +1,8 @@
+# modules/ecs/main.tf
+
+# ===================================================
+# ECR
+# ===================================================
 resource "aws_ecr_repository" "app" {
   name                 = "standard-webapp"
   image_tag_mutability = "MUTABLE"
@@ -8,13 +13,8 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
-# 今後のECS構築（タスク定義など）でリポジトリURLを使い回せるようにoutputしておく
-output "repository_url" {
-  value = aws_ecr_repository.app.repository_url
-}
-
 # ==============================================================================
-# 1. ECSタスク実行ロール (ECSがECRからイメージをプルしたり、ログを吐くための権限)
+# ECS Task Execution Role (Permissions for pulling ECR images & writing logs)
 # ==============================================================================
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "standard-ecs-task-execution-role"
@@ -33,15 +33,15 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   })
 }
 
-# AWSが用意している、ECS実行用の標準ポリシーをロールに紐付ける
+# Attach standard AWS policy for ECS task execution
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# ==============================================================================
-# 2. ECSタスク定義 (Fargateで動かすコンテナの設計図)
-# ==============================================================================
+# ===================================================
+# ECS Task Definition
+# ===================================================
 resource "aws_ecs_task_definition" "app" {
   family                   = "standard-webapp-task"
   network_mode             = "awsvpc" # Fargateは必須
@@ -53,7 +53,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name      = "webapp"
-      image     = "${aws_ecr_repository.app.repository_url}:latest" # 前回作ったECRのURLを自動参照！
+      image     = "${aws_ecr_repository.app.repository_url}:latest"
       essential = true
       
       portMappings = [
@@ -81,27 +81,27 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
   retention_in_days = 7
 }
 
-# ==============================================================================
-# 3. ECSクラスター (コンテナを動かす論理的な基盤)
-# ==============================================================================
+# ===================================================
+# ECS Cluster
+# ===================================================
 resource "aws_ecs_cluster" "main" {
   name = "standard-ecs-cluster"
 }
 
-# ==============================================================================
-# 4. ECSサービス (設計図を元にコンテナを常時起動・管理する)
-# ==============================================================================
+# ===================================================
+# ECS Service
+# ===================================================
 resource "aws_ecs_service" "app" {
   name            = "standard-webapp-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1          # 起動するコンテナの数
-  launch_type     = "FARGATE"  # サーバーレスモード
+  desired_count   = 1
+  launch_type     = "FARGATE"
 
   network_configuration {
     subnets          = [var.private_app_subnet_1a_id, var.private_app_subnet_1c_id]
     security_groups  = [var.app_sg_id]
-    assign_public_ip = false # プライベート空間なのでパブリックIPは不要
+    assign_public_ip = false
   }
 
   load_balancer {
