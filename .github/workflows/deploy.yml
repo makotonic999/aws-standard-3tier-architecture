@@ -68,6 +68,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render-web-container.outputs.task-definition }}
-          service: standard-service
-          cluster: standard-cluster
+          service: standard-webapp-service
+          cluster: standard-ecs-cluster
           wait-for-service-stability: true
