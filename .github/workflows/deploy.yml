@@ -1,4 +1,4 @@
-name: Deploy to Amazon ECR
+name: Deploy to Amazon ECR and ECS
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   deploy:
-    name: Build and Push Image
+    name: Build, Push, and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -36,13 +36,38 @@ jobs:
 
       # 4. Build, Tag, and Push the Docker image to Amazon ECR
       - name: Build, Tag, and Push Image to ECR
+        id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: standard-webapp
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ github.sha }} # Use the Git commit SHA as a unique image tag
         run: |
           cd app
           # Build the Docker image for the target platform (ECS Fargate)
           docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           # Push the image to Amazon ECR
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # Output the image URI for the next step
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      # 5. Download the active task definition from Amazon ECS
+      - name: Download active task definition
+        run: |
+          aws ecs describe-task-definition --task-definition standard-task-def --query taskDefinition > task-definition.json
+
+      # 6. Fill in the new image ID in the Amazon ECS task definition and Deploy
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: render-web-container
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: web # ⚠️ Ensure this matches the container name in your Terraform configuration
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-web-container.outputs.task-definition }}
+          service: standard-service
+          cluster: standard-cluster
+          wait-for-service-stability: true
