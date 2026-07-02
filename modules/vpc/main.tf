@@ -122,6 +122,11 @@ resource "aws_route_table_association" "private_app_1a" {
   route_table_id = aws_route_table.private.id
 }
 
+resource "aws_route_table_association" "private_app_1c" {
+  subnet_id      = aws_subnet.private_app_1c.id
+  route_table_id = aws_route_table.private.id
+}
+
 # ===================================================
 # Security Group
 # ===================================================
@@ -246,7 +251,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ecr.api"
   vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_app_1a.id]
+  subnet_ids          = [aws_subnet.private_app_1a.id, aws_subnet.private_app_1c.id]
   security_group_ids  = [aws_security_group.vpc_endpoint.id]
   private_dns_enabled = true
 
@@ -260,7 +265,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ecr.dkr"
   vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_app_1a.id]
+  subnet_ids          = [aws_subnet.private_app_1a.id, aws_subnet.private_app_1c.id]
   private_dns_enabled = true
   security_group_ids  = [aws_security_group.vpc_endpoint.id]
 
@@ -274,7 +279,7 @@ resource "aws_vpc_endpoint" "logs" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.logs"
   vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_app_1a.id]
+  subnet_ids          = [aws_subnet.private_app_1a.id, aws_subnet.private_app_1c.id]
   private_dns_enabled = true
   security_group_ids  = [aws_security_group.vpc_endpoint.id]
 
