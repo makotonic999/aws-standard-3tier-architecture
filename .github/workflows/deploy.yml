@@ -53,7 +53,7 @@ jobs:
       # 5. Download the active task definition from Amazon ECS
       - name: Download active task definition
         run: |
-          aws ecs describe-task-definition --task-definition standard-task-def --query taskDefinition > task-definition.json
+          aws ecs describe-task-definition --task-definition standard-webapp-task --query taskDefinition > task-definition.json
 
       # 6. Fill in the new image ID in the Amazon ECS task definition and Deploy
       - name: Fill in the new image ID in the Amazon ECS task definition
