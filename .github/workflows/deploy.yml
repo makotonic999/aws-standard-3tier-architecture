@@ -61,7 +61,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: web # ⚠️ Ensure this matches the container name in your Terraform configuration
+          container-name: webapp # ⚠️ Ensure this matches the container name in your Terraform configuration
           image: ${{ steps.build-image.outputs.image }}
 
       - name: Deploy Amazon ECS task definition
