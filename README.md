@@ -17,14 +17,19 @@ graph TD
     ALB[Application Load Balancer]
 
     subgraph VPC [VPC]
+        %% --- 1aのエリア ---
         subgraph AZ_1a [Availability Zone 1a]
             Fargate1[ECS Fargate Task - 1a]
+            RDS_1a[(Amazon RDS MySQL - 1a)]
         end
         
+        %% --- 1cのエリア ---
         subgraph AZ_1c [Availability Zone 1c]
             Fargate2[ECS Fargate Task - 1c]
+            RDS_1c[(Amazon RDS MySQL - 1c)]
         end
 
+        %% --- 共通エンドポイント ---
         subgraph VPCE [VPC Endpoints]
             ECR_API[ecr.api]
             ECR_DKR[ecr.dkr]
@@ -36,14 +41,21 @@ graph TD
     AWS_CW[(Amazon CloudWatch)]
     AWS_S3[(Amazon S3)]
 
-    %% 通信の流れ
+    %% --- 通信の流れ ---
     User -->|HTTP port 80| IGW
     IGW --> ALB
     
     ALB -->|HTTP port 8000| Fargate1
     ALB -->|HTTP port 8000| Fargate2
 
-    %% 1a, 1c両方からエンドポイントを経由する流れ（今回の肝）
+    %% アプリからDBへのセキュアな通信
+    Fargate1 -->|MySQL port 3306| RDS_1a
+    Fargate2 -->|MySQL port 3306| RDS_1c
+    
+    %% RDS間のマルチAZ同期（AWSが自動でやる裏側の通信）
+    RDS_1a <.- "Multi-AZ Replication" -.> RDS_1c
+
+    %% 1a, 1c両方からエンドポイントを経由する流れ
     Fargate1 -->|HTTPS port 443| ECR_API
     Fargate1 -->|HTTPS port 443| ECR_DKR
     Fargate1 -->|HTTPS port 443| LOGS
