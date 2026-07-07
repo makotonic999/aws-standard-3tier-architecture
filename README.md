@@ -44,7 +44,7 @@ graph TD
                 end
             end
             
-            %% ここが週末前のトラブル解決の肝！ %%
+            %% VPCエンドポイント %%
             subgraph endpoints ["VPC Endpoints (Security Group: vpc_endpoint_sg)"]
                 VPCE_ECR_API["com.amazonaws.ap-northeast-1.ecr.api"]:::endpoint
                 VPCE_ECR_DKR["com.amazonaws.ap-northeast-1.ecr.dkr"]:::endpoint
@@ -59,35 +59,28 @@ graph TD
         S3[("Amazon S3 (for ECR layers)")]:::storage
     end
 
-    %% --- 通信の流れ --- %%
-
-    %% インターネットからALB
-    User -->|HTTP (port 80)| IGW
+    %% --- 通信の流れ（修正部分） --- %%
+    User -- "HTTP (port 80)" --> IGW
     IGW --> ALB
     
-    %% ALBからFargate（両方のAZに振り分け）
-    ALB -->|HTTP (port 8000)| Fargate1
-    ALB -->|HTTP (port 8000)| Fargate2
+    ALB -- "HTTP (port 8000)" --> Fargate1
+    ALB -- "HTTP (port 8000)" --> Fargate2
     
-    %% Fargateタスクのネットワーク通信（VPCエンドポイント経由）
-    %% これによってプライベートサブネットからECR等に繋がった
-    Fargate1 -->|port 443 (HTTPS)| VPCE_ECR_API
-    Fargate1 -->|port 443 (HTTPS)| VPCE_ECR_DKR
-    Fargate1 -->|port 443 (HTTPS)| VPCE_LOGS
+    Fargate1 -- "port 443 (HTTPS)" --> VPCE_ECR_API
+    Fargate1 -- "port 443 (HTTPS)" --> VPCE_ECR_DKR
+    Fargate1 -- "port 443 (HTTPS)" --> VPCE_LOGS
 
-    Fargate2 -->|port 443 (HTTPS)| VPCE_ECR_API
-    Fargate2 -->|port 443 (HTTPS)| VPCE_ECR_DKR
-    Fargate2 -->|port 443 (HTTPS)| VPCE_LOGS
+    Fargate2 -- "port 443 (HTTPS)" --> VPCE_ECR_API
+    Fargate2 -- "port 443 (HTTPS)" --> VPCE_ECR_DKR
+    Fargate2 -- "port 443 (HTTPS)" --> VPCE_LOGS
 
-    %% VPCエンドポイントから各AWSサービスへ
-    VPCE_ECR_API -.->|Interface Endpoint| ECR
-    VPCE_ECR_DKR -.->|Interface Endpoint| ECR
-    VPCE_LOGS -.->|Interface Endpoint| CloudWatch
+    VPCE_ECR_API -.-> ECR
+    VPCE_ECR_DKR -.-> ECR
+    VPCE_LOGS -.-> CloudWatch
     
-    %% S3 Gatewayエンドポイントを経由してイメージレイヤーを取得
-    Fargate1 -.->|S3 Gateway Endpoint| S3
-    Fargate2 -.->|S3 Gateway Endpoint| S3
-    S3 -.->|Image Layer Data| ECR
+    Fargate1 -.-> S3
+    Fargate2 -.-> S3
+    S3 -.-> ECR
 
     %% --- スタイルの定義 --- %%
     classDef client fill:#000000,stroke:#333,stroke-width:2px,color:#ffffff;
@@ -96,5 +89,4 @@ graph TD
     classDef storage fill:#ffffff,stroke:#333,stroke-width:1px,rx:5,ry:5,stroke-dasharray: 5 5,color:#000000;
     classDef endpoint fill:#e1f5fe,stroke:#0277bd,stroke-width:1px,color:#000000;
     linkStyle default stroke-width:1.5px,fill:none,stroke:#000000;
-    linkStyle 3,4,5,6,7,8,9,10,11,12,13,14 stroke:#0277bd,stroke-width:1px,stroke-dasharray: 2 2;
 ```
