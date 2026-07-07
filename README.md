@@ -52,8 +52,8 @@ graph TD
     Fargate1 -->|MySQL port 3306| RDS_1a
     Fargate2 -->|MySQL port 3306| RDS_1c
     
-    %% RDS間のマルチAZ同期（AWSが自動でやる裏側の通信）
-    RDS_1a <.- "MULT-AZ Replication" -.> RDS_1c
+    %% RDS間のマルチAZ同期（構文エラーを回避した安全な書き方）
+    RDS_1a -. Multi-AZ Replication .-> RDS_1c
 
     %% 1a, 1c両方からエンドポイントを経由する流れ
     Fargate1 -->|HTTPS port 443| ECR_API
