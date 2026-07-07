@@ -1,44 +1,100 @@
 # AWS Standard 3-tier Architecture (IaC)
 
 ## 概要
-Terraformを活用したAWS 3層アーキテクチャのプロビジョニングプロジェクトです。
-本リポジトリでは、インフラのコード化（IaC）による再現性と、セキュアでスケーラブルな環境の構築を目指しています。
-
-## 構成
-- **VPC**: 3層（Public/Private）サブネット構成
-- **Compute**: EC2インスタンス（Auto Scalingを考慮した設計）
-- **Database**: RDS (MySQL) 8.0系
-- **Security**: セキュリティグループによる最小権限アクセスの実装
+Terraformを活用したAWS 3層アーキテクチャをコンテナで再現するプロジェクト
 
 ## 技術スタック
 - **Language**: HCL (Terraform)
 - **Cloud**: AWS
 - **Tool**: Git, Terraform CLI, AWS CLI
 
-## 動作確認環境
-- Local OS: Windows 11 (WSL2/Mingw64)
-- Terraform version: 1.15.1
-- AWS CLI version: 2.34.41
-
 ## アーキテクチャ図
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#f3f4f6'}}}%%
 graph TD
-    subgraph VPC
-        InternetGateway --> PublicSubnet[Public Subnet]
-        PublicSubnet --> EC2[EC2 Instance]
+    %% クラウドの定義 %%
+    subgraph cloud ["AWS Cloud (ap-northeast-1)"]
         
-        subgraph PrivateSubnet[Private Subnet]
-            EC2 --> RDS[(RDS MySQL)]
+        %% インターネットゲートウェイ
+        IGW["Internet Gateway"]:::network
+
+        %% インターネット（外の世界）
+        User[("👤 User / Internet")]:::client
+
+        subgraph vpc ["VPC (10.0.0.0/16)"]
+            
+            %% ロードバランサー
+            ALB["Application Load Balancer"]:::network
+
+            subgraph az1 ["Availability Zone 1a"]
+                subgraph pub1 ["Public Subnet (1a)"]
+                end
+                
+                subgraph pri1 ["Private App Subnet (1a)"]
+                    Fargate1["ECS Fargate Task"]:::compute
+                end
+            end
+
+            subgraph az2 ["Availability Zone 1c"]
+                subgraph pub2 ["Public Subnet (1c)"]
+                end
+                
+                subgraph pri2 ["Private App Subnet (1c)"]
+                    Fargate2["ECS Fargate Task"]:::compute
+                end
+            end
+            
+            %% ここが週末前のトラブル解決の肝！ %%
+            subgraph endpoints ["VPC Endpoints (Security Group: vpc_endpoint_sg)"]
+                VPCE_ECR_API["com.amazonaws.ap-northeast-1.ecr.api"]:::endpoint
+                VPCE_ECR_DKR["com.amazonaws.ap-northeast-1.ecr.dkr"]:::endpoint
+                VPCE_LOGS["com.amazonaws.ap-northeast-1.logs"]:::endpoint
+            end
+
         end
+        
+        %% AWSサービス（VPCの外） %%
+        ECR[("Amazon ECR (Image Registry)")]:::storage
+        CloudWatch[("Amazon CloudWatch (Logs)")]:::storage
+        S3[("Amazon S3 (for ECR layers)")]:::storage
     end
 
-    style RDS fill:#f9f,stroke:#333,stroke-width:2px
-    style EC2 fill:#bbf,stroke:#333,stroke-width:2px
-```
-## 構築手順
-1. `terraform init` を実行
-2. `terraform apply` で環境構築
-3. `terraform destroy` で環境削除
+    %% --- 通信の流れ --- %%
 
-## 工夫した点
-- 特定のマイナーバージョン指定による環境依存エラーを避けるため、メジャーバージョン指定へ最適化しました。
+    %% インターネットからALB
+    User -->|HTTP (port 80)| IGW
+    IGW --> ALB
+    
+    %% ALBからFargate（両方のAZに振り分け）
+    ALB -->|HTTP (port 8000)| Fargate1
+    ALB -->|HTTP (port 8000)| Fargate2
+    
+    %% Fargateタスクのネットワーク通信（VPCエンドポイント経由）
+    %% これによってプライベートサブネットからECR等に繋がった
+    Fargate1 -->|port 443 (HTTPS)| VPCE_ECR_API
+    Fargate1 -->|port 443 (HTTPS)| VPCE_ECR_DKR
+    Fargate1 -->|port 443 (HTTPS)| VPCE_LOGS
+
+    Fargate2 -->|port 443 (HTTPS)| VPCE_ECR_API
+    Fargate2 -->|port 443 (HTTPS)| VPCE_ECR_DKR
+    Fargate2 -->|port 443 (HTTPS)| VPCE_LOGS
+
+    %% VPCエンドポイントから各AWSサービスへ
+    VPCE_ECR_API -.->|Interface Endpoint| ECR
+    VPCE_ECR_DKR -.->|Interface Endpoint| ECR
+    VPCE_LOGS -.->|Interface Endpoint| CloudWatch
+    
+    %% S3 Gatewayエンドポイントを経由してイメージレイヤーを取得
+    Fargate1 -.->|S3 Gateway Endpoint| S3
+    Fargate2 -.->|S3 Gateway Endpoint| S3
+    S3 -.->|Image Layer Data| ECR
+
+    %% --- スタイルの定義 --- %%
+    classDef client fill:#000000,stroke:#333,stroke-width:2px,color:#ffffff;
+    classDef network fill:#f3f4f6,stroke:#333,stroke-width:1px,rx:10,ry:10,color:#000000;
+    classDef compute fill:#ff9900,stroke:#000,stroke-width:1px,color:#ffffff,font-weight:bold,rx:5,ry:5;
+    classDef storage fill:#ffffff,stroke:#333,stroke-width:1px,rx:5,ry:5,stroke-dasharray: 5 5,color:#000000;
+    classDef endpoint fill:#e1f5fe,stroke:#0277bd,stroke-width:1px,color:#000000;
+    linkStyle default stroke-width:1.5px,fill:none,stroke:#000000;
+    linkStyle 3,4,5,6,7,8,9,10,11,12,13,14 stroke:#0277bd,stroke-width:1px,stroke-dasharray: 2 2;
+```
