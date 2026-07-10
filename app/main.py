@@ -1,3 +1,4 @@
+# Realtime Server Survival Board
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
