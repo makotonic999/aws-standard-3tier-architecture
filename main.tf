@@ -47,7 +47,7 @@ module "rds" {
 
   private_db_subnet_1a_id = module.vpc.private_db_subnet_1a_id
   private_db_subnet_1c_id = module.vpc.private_db_subnet_1c_id
-  db_security_group_id = module.vpc.default_security_group_id
+  db_security_group_id = module.vpc.db_security_group_id
   db_username = var.db_username
   db_password = var.db_password
 }
