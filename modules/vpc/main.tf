@@ -299,7 +299,6 @@ resource "aws_vpc_endpoint" "s3" {
 # ===========================================================
 # Unused Variables (Currently not used since RDS was removed)
 # ===========================================================
-/*
 resource "aws_subnet" "private_db_1a" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.30.0/24"
@@ -334,7 +333,7 @@ resource "aws_subnet" "private_db_1c" {
 resource "aws_security_group" "db_sg" {
   name        = "standard-db-sg"
   description = "Security group for RDS MySQL"
-  vpc_id      = var.vpc_id
+  vpc_id      = aws_vpc.main.id
 
   # AppサーバーSGからのMySQL（3306）通信のみ許可
   ingress {
@@ -357,7 +356,6 @@ resource "aws_security_group" "db_sg" {
     Name = "standard-db-sg"
   }
 }
-*/
 
 # ===================================================
 # commment outs (Web/AP)

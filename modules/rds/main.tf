@@ -1,5 +1,7 @@
+# modules/rds/main.tf
+
 # =================================================================
-# 1. RDS用のサブネットグループ
+# subnet group
 # =================================================================
 
 resource "aws_db_subnet_group" "mysql" {
@@ -12,7 +14,7 @@ resource "aws_db_subnet_group" "mysql" {
 }
 
 # =================================================================
-# 2. RDS インスタンス本体
+# RDS instance
 # =================================================================
 
 resource "aws_db_instance" "mysql" {
@@ -26,8 +28,6 @@ resource "aws_db_instance" "mysql" {
   password = var.db_password
   parameter_group_name = "default.mysql8.0"
   skip_final_snapshot  = true
-
-  # ネットワーク・セキュリティ設定
   db_subnet_group_name   = aws_db_subnet_group.mysql.name
   vpc_security_group_ids = [var.db_security_group_id]
 

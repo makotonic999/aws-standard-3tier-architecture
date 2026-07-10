@@ -78,12 +78,6 @@ output "s3_endpoint_id" {
 # ===========================================================
 # Unused Variables (Currently not used since RDS was removed)
 # ===========================================================
-/*
-output "private_app_subnet_1c_id" {
-  value       = aws_subnet.private_app_1c.id
-  description = "The ID of the private app subnet in 1c"
-}
-
 output "private_db_subnet_1a_id" {
   description = "The ID of the private db subnet in 1a"
   value       = aws_subnet.private_db_1a.id
@@ -98,4 +92,3 @@ output "db_security_group_id" {
   description = "The ID of the security group for RDS"
   value       = aws_security_group.db_sg.id
 }
-*/

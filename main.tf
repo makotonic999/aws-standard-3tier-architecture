@@ -39,7 +39,6 @@ module "alb" {
 # ===========================================================
 # Unused Variables (Currently not used since RDS was removed)
 # ===========================================================
-/*
 module "rds" {
   source = "./modules/rds"
 
@@ -49,4 +48,3 @@ module "rds" {
   db_username = var.db_username
   db_password = var.db_password
 }
-*/
