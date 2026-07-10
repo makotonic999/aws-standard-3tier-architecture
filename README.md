@@ -42,6 +42,12 @@ modules/
 - 現在の作業ブランチ・直前の作業内容を伝える
 - エラーが出ている場合はターミナルの出力をそのまま貼る
 
+## terraform destroy後の再構築手順
+1. `terraform apply` でインフラを再構築
+2. `app/` 配下のファイルを少し変更してコミット＆プッシュ（GitHub Actionsが発火してECRにイメージをプッシュ＆ECSにデプロイ）
+
+※ RDSのエンドポイントはTerraformが自動でECSに渡すのでコードの修正は不要
+※ ECRのイメージは削除されるので必ずStep 2が必要
 ## アーキテクチャ図
 ```mermaid
 graph TD
