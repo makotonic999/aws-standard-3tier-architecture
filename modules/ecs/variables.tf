@@ -38,3 +38,19 @@ variable "target_group_arn" {
 variable "alb_listener_http_arn" {
   type = string
 }
+
+variable "db_host" {
+  type        = string
+  description = "RDS endpoint hostname"
+}
+
+variable "db_user" {
+  type        = string
+  description = "RDS master username"
+}
+
+variable "db_password" {
+  type        = string
+  sensitive   = true
+  description = "RDS master password"
+}

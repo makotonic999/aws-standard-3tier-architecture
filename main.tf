@@ -23,6 +23,9 @@ module "ecs" {
   s3_endpoint_id           = module.vpc.s3_endpoint_id
   target_group_arn         = module.alb.target_group_arn
   alb_listener_http_arn    = module.alb.alb_listener_http_arn
+  db_host                  = module.rds.db_endpoint
+  db_user                  = var.db_username
+  db_password              = var.db_password
 }
 
 # ALB module
