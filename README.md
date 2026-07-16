@@ -24,16 +24,23 @@ Terraform（IaC）の実務スキルを習得するためのトレーニング�
 ## モジュール構成
 ```
 modules/
-├── vpc/   # VPC, サブネット, SG, VPCエンドポイント
-├── alb/   # Application Load Balancer
-├── ecs/   # ECS Fargate, ECR, タスク定義
-├── rds/   # RDS MySQL (Multi-AZ)
-└── ec2/   # Bastionサーバー
+├── vpc/       # VPC, サブネット, SG, VPCエンドポイント
+├── alb/       # Application Load Balancer
+├── ecs/       # ECS Fargate, ECR, タスク定義
+├── rds/       # RDS MySQL (Multi-AZ)
+└── ec2/       # Bastionサーバー
+
+bootstrap/     # tfstate管理用S3バケット・DynamoDBテーブル（一度だけ手動apply）
 ```
 
 ## Git運用方針
 - `feature/*` ブランチで作業し、節目ごとにGitHubへPush
 - 現在のブランチ: `feature/ecs-fargate`
+
+## tfstateの管理
+- tfstateはS3バケット（`standard-3tier-tfstate`）で一元管理
+- DynamoDBテーブル（`standard-3tier-tfstate-lock`）でステートロック（排他制御）
+- `bootstrap/` は一度だけ手動で `terraform apply` する（CI/CDには含めない）
 
 ## Amazon Q 引き継ぎ用コンテキスト
 次回セッション開始時に以下を伝えると作業をスムーズに再開できる。
@@ -48,6 +55,7 @@ modules/
 
 ※ RDSのエンドポイントはTerraformが自動でECSに渡すのでコードの修正は不要
 ※ ECRのイメージは削除されるので必ずStep 2が必要
+※ `bootstrap/` のS3・DynamoDBは `terraform destroy` の対象外なので再applyは不要
 ## アーキテクチャ図
 ```mermaid
 graph TD
@@ -83,6 +91,11 @@ graph TD
     AWS_ECR[(Amazon ECR)]
     AWS_CW[(Amazon CloudWatch)]
 
+    subgraph TFSTATE [Terraform State Management]
+        S3_TFSTATE[(S3 Bucket\ntfstate)]
+        DYNAMO[(DynamoDB\nState Lock)]
+    end
+
     %% --- 通信の流れ ---
     User -->|HTTP port 80| IGW
     IGW --> ALB
@@ -115,10 +128,12 @@ graph TD
     Fargate1 -.-> AWS_S3
     Fargate2 -.-> AWS_S3
 
+    %% TerraformからState管理へ
+    Terraform -->|read/write tfstate| S3_TFSTATE
+    Terraform -->|lock/unlock| DYNAMO
+
     %% --- レイアウト調整用の不可視リンク ---
-    %% S3をVPCEの直下に強制配置
     VPCE ~~~ AWS_S3
-    %% AZ_1aとAZ_1cをVPCEの両脇に配置
     AZ_1a ~~~ VPCE
     VPCE ~~~ AZ_1c
 ```
