@@ -39,15 +39,25 @@ module "alb" {
   alb_security_group_id = module.vpc.alb_security_group_id
 }
 
-# ===========================================================
-# Unused Variables (Currently not used since RDS was removed)
-# ===========================================================
+# RDS module
 module "rds" {
   source = "./modules/rds"
 
   private_db_subnet_1a_id = module.vpc.private_db_subnet_1a_id
   private_db_subnet_1c_id = module.vpc.private_db_subnet_1c_id
-  db_security_group_id = module.vpc.db_security_group_id
-  db_username = var.db_username
-  db_password = var.db_password
+  db_security_group_id    = module.vpc.db_security_group_id
+  db_username             = var.db_username
+  db_password             = var.db_password
+}
+
+# Monitoring module
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  notification_email      = var.notification_email
+  alb_arn_suffix          = module.alb.alb_arn_suffix
+  target_group_arn_suffix = module.alb.target_group_arn_suffix
+  ecs_cluster_name        = module.ecs.cluster_name
+  ecs_service_name        = module.ecs.service_name
+  db_identifier           = module.rds.db_identifier
 }

@@ -49,6 +49,21 @@ bootstrap/     # tfstate管理用S3バケット・DynamoDBテーブル（一度�
 - 現在の作業ブランチ・直前の作業内容を伝える
 - エラーが出ている場合はターミナルの出力をそのまま貼る
 
+## 作業開始ルーティン
+1. `terraform apply` でインフラを再構築
+   ```bash
+   terraform apply
+   ```
+2. ECRにイメージをプッシュ（GitHub Actionsを発火させる）
+   ```bash
+   echo "" >> app/README.md
+   git add app/README.md
+   git commit -m "ci: trigger deploy after terraform apply"
+   git push origin feature/ecs-fargate
+   ```
+3. GitHub → Actions タブでワークフローの完了を確認
+4. ALBのDNS名にアクセスしてアプリの動作確認
+
 ## terraform destroy後の再構築手順
 1. `terraform apply` でインフラを再構築
 2. `app/` 配下のファイルを少し変更してコミット＆プッシュ（GitHub Actionsが発火してECRにイメージをプッシュ＆ECSにデプロイ）

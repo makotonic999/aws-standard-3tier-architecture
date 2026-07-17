@@ -4,3 +4,8 @@ variable "db_password" {
   sensitive = true
   default   = "dummydummy"
 }
+
+variable "notification_email" {
+  description = "Email address for CloudWatch Alarm notifications"
+  type        = string
+}
