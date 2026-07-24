@@ -120,6 +120,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "sns:GetTopicAttributes",
       "sns:ListSubscriptionsByTopic",
       "sns:ListTagsForResource",
+      "sns:GetSubscriptionAttributes",
       "iam:GetRole",
       "iam:GetPolicy",
       "iam:GetPolicyVersion",
