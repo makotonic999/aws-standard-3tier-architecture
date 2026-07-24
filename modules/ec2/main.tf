@@ -1,24 +1,32 @@
-# =================================================================
-# 1. 共通データ・リソース
-# =================================================================
+# modules/ec2/main.tf
 
-# 最新の Amazon Linux 2023 AMI を自動取得
+# =================================================================
+# Dynamic AMI Data Source
+# =================================================================
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["al2023-ami-minimal-*-x86_64"]
+    values = ["al2023-ami-20*-x86_64"]
+  }
+
+  filter {
+    name   = "name"
+    values = ["*-kernel-6.*"] 
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 }
 
 # =================================================================
-# 2. IAMロール
+# IAM Role 
 # =================================================================
-
-# SSM接続用のIAMロールとプロファイル
-# EC2が「自分はEC2です」と名乗るためのロール
+# for Bastion (SSM, ECR Access)
 resource "aws_iam_role" "bastion_ssm_role" {
   name = "standard-bastion-ssm-role"
 
@@ -36,123 +44,50 @@ resource "aws_iam_role" "bastion_ssm_role" {
   })
 }
 
-# ロールに「SSMを使ってもいい」というポリシーを付与
+# =================================================================
+# Policy Attachments
+# =================================================================
+# ECR Access Permissions
+resource "aws_iam_role_policy_attachment" "bastion_ecr_attach" {
+  role       = aws_iam_role.bastion_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
+}
+
+# SSM Core Permissions
 resource "aws_iam_role_policy_attachment" "bastion_ssm_attach" {
   role       = aws_iam_role.bastion_ssm_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# 作ったロールをEC2にはめ込める形（インスタンスプロファイル）に変換する
+# =================================================================
+# Instance Profile for EC2
+# =================================================================
 resource "aws_iam_instance_profile" "bastion_profile" {
   name = "standard-bastion-instance-profile"
   role = aws_iam_role.bastion_ssm_role.name
 }
 
 # =================================================================
-# 3. セキュリティグループの定義
+# EC2 Instance
 # =================================================================
-
-# 踏み台サーバ用（SSM対応版）
-resource "aws_security_group" "bastion_sg" {
-  name        = "standard-bastion-sg"
-  description = "Security group for bastion server using SSM"
-  vpc_id      = var.vpc_id
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1" # すべての通信を許可
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Name = "standard-bastion-sg"
-  }
-}
-
-# 1. Web/APサーバ用
-resource "aws_security_group" "app_sg" {
-  name        = "standard-app-sg"
-  description = "Security group for internal Web/AP server"
-  vpc_id      = var.vpc_id
-
-  # インバウンドルール
-  ingress {
-    description     = "Allow traffic from Bastion"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.bastion_sg.id]
-  }
-
-  # アウトバウンドルール
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Name = "standard-app-sg"
-  }
-}
-
-# RDS用（Appサーバからの通信のみ許可）
-resource "aws_security_group" "db_sg" {
-  name        = "standard-db-sg"
-  description = "Security group for RDS MySQL"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "Allow MySQL traffic from App SG"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app_sg.id]
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Name = "standard-db-sg"
-  }
-}
-
-# =================================================================
-# 4. サーバー本体の定義
-# =================================================================
-
-# 踏み台サーバ
+# Bastion
 resource "aws_instance" "bastion" {
   ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = "t3.micro"
   subnet_id              = var.public_subnet_1a_id
-  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+  vpc_security_group_ids = [var.bastion_sg_id]
   iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
+
+  user_data = <<-EOF
+            #!/bin/bash
+            dnf update -y
+            dnf install -y docker git
+            systemctl start docker
+            systemctl enable docker
+            usermod -aG docker ec2-user
+            EOF
 
   tags = {
     Name = "standard-bastion-ec2"
-  }
-}
-
-# Web/APサーバ
-resource "aws_instance" "app" {
-  ami                    = data.aws_ami.amazon_linux_2023.id
-  instance_type          = "t3.micro"
-  subnet_id              = var.private_app_subnet_1a_id
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
-
-  tags = {
-    Name = "standard-app-ec2"
   }
 }

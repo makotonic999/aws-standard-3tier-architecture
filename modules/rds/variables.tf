@@ -1,3 +1,5 @@
+# modules/rds/variables.tf
+
 variable "private_db_subnet_1a_id" {
   type        = string
   description = "The ID of the private DB subnet 1a"

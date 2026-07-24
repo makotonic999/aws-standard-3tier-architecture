@@ -1,0 +1,76 @@
+name: Deploy to Amazon ECR and ECS
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+    paths:
+      - 'app/**' # Trigger only when files under the app directory change
+
+permissions:
+  id-token: write # Required for OIDC authentication
+  contents: read  # Required to checkout the repository code
+
+jobs:
+  deploy:
+    name: Build, Push, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Authenticate with AWS using OIDC
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      # 3. Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 4. Build, Tag, and Push the Docker image to Amazon ECR
+      - name: Build, Tag, and Push Image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: standard-webapp
+          IMAGE_TAG: ${{ github.sha }} # Use the Git commit SHA as a unique image tag
+        run: |
+          cd app
+          # Build the Docker image for the target platform (ECS Fargate)
+          docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # Push the image to Amazon ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # Also tag and push as latest
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          # Output the image URI for the next step
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      # 5. Download the active task definition from Amazon ECS
+      - name: Download active task definition
+        run: |
+          aws ecs describe-task-definition --task-definition standard-webapp-task --query taskDefinition > task-definition.json
+
+      # 6. Fill in the new image ID in the Amazon ECS task definition and Deploy
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: render-web-container
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: webapp # ⚠️ Ensure this matches the container name in your Terraform configuration
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-web-container.outputs.task-definition }}
+          service: standard-webapp-service
+          cluster: standard-ecs-cluster
+          wait-for-service-stability: true
