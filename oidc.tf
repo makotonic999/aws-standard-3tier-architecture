@@ -107,20 +107,29 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "elasticloadbalancing:Describe*",
       "ecs:Describe*",
       "ecs:List*",
+      "ecr:DescribeRepositories",
+      "ecr:ListTagsForResource",
       "rds:Describe*",
+      "rds:ListTagsForResource",
       "secretsmanager:Describe*",
       "secretsmanager:GetSecretValue",
+      "secretsmanager:GetResourcePolicy",
       "cloudwatch:Describe*",
       "cloudwatch:GetDashboard",
+      "cloudwatch:ListTagsForResource",
       "sns:GetTopicAttributes",
       "sns:ListSubscriptionsByTopic",
+      "sns:ListTagsForResource",
       "iam:GetRole",
       "iam:GetPolicy",
       "iam:GetPolicyVersion",
+      "iam:GetRolePolicy",
+      "iam:GetInstanceProfile",
+      "iam:GetOpenIDConnectProvider",
       "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies",
-      "iam:GetRolePolicy",
-      "logs:Describe*"
+      "logs:Describe*",
+      "logs:ListTagsForResource"
     ]
     resources = ["*"]
   }
