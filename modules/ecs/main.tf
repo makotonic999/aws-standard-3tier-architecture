@@ -39,6 +39,23 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Allow ECS to read Secrets Manager
+resource "aws_iam_role_policy" "ecs_secrets_policy" {
+  name = "standard-ecs-secrets-policy"
+  role = aws_iam_role.ecs_task_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [var.secret_arn]
+      }
+    ]
+  })
+}
+
 # ===================================================
 # ECS Task Definition
 # ===================================================
@@ -65,9 +82,12 @@ resource "aws_ecs_task_definition" "app" {
       ]
 
       environment = [
-        { name = "DB_HOST",     value = var.db_host },
-        { name = "DB_USER",     value = var.db_user },
-        { name = "DB_PASSWORD", value = var.db_password }
+        { name = "DB_HOST", value = var.db_host }
+      ]
+
+      secrets = [
+        { name = "DB_USER",     valueFrom = "${var.secret_arn}:username::" },
+        { name = "DB_PASSWORD", valueFrom = "${var.secret_arn}:password::" }
       ]
 
       logConfiguration = {

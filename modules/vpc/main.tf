@@ -182,17 +182,11 @@ resource "aws_security_group" "bastion_sg" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
-  }
-  ingress {
     description = "Allow HTTP traffic on port 8000 from VPC"
     from_port   = 8000
     to_port     = 8000
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"] # 誠さんのVPCのCIDR範囲（もし変えていれば合わせてください）
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   egress {

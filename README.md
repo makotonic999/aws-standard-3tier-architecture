@@ -1,154 +1,186 @@
-# AWS Standard 3-tier Architecture (IaC)
+# AWS Standard 3-Tier Architecture (IaC)
 
-## 目的・背景
-Terraform（IaC）の実務スキルを習得するためのトレーニングプロジェクト。
-最終的には「実務で評価される、堅牢なポートフォリオ」として機能する作品にすることを目指している。
+Terraform を用いて AWS 上に本番運用を意識した3層アーキテクチャを構築したポートフォリオです。
+インフラの構築だけでなく、セキュリティ・監視・CI/CD までをコードで一貫して管理しています。
 
-ただインフラを構築するだけでなく、ユーザー視点でインフラの仕組み（マルチAZや3層構造）を体感できる
-**「リアルタイム・サーバー生存確認掲示板」** というアプリ（FastAPI）を載せて完成させる。
+## 概要
 
-## アプリ仕様
-1. 画面トップに、現在アクセスしているECSコンテナのAZ（`ap-northeast-1a` または `1c`）をデカデカと表示する
-   - リロードするとALBによって1aと1cが切り替わるのが目に見える
-2. フォームからメッセージを入力すると、プライベートサブネットのRDS（MySQL）にデータが保存され、一覧表示される
+単なるインフラ構築にとどまらず、**ユーザーがマルチAZや3層構造の仕組みを体感できる**アプリケーションを載せて完成させています。
+
+アプリ「**リアルタイム・サーバー生存確認掲示板**」の機能：
+1. 現在アクセスしているECSコンテナのAZ（`ap-northeast-1a` / `1c`）をリアルタイム表示。リロードするたびにALBによってAZが切り替わる様子が目に見える
+2. フォームからメッセージを投稿すると、プライベートサブネットのRDS（MySQL）に保存され一覧表示される
 
 ## 技術スタック
-- **IaC**: Terraform (HCL)
-- **Cloud**: AWS
-- **App**: Python / FastAPI / SQLAlchemy / PyMySQL
-- **Container**: Docker / Amazon ECS Fargate / Amazon ECR
-- **DB**: Amazon RDS MySQL 8.0
-- **CI/CD**: GitHub Actions (OIDC認証)
-- **Tool**: Git, Terraform CLI, AWS CLI
+
+| カテゴリ | 使用技術 |
+|---|---|
+| IaC | Terraform (HCL) |
+| Cloud | AWS |
+| App | Python / FastAPI / SQLAlchemy / PyMySQL |
+| Container | Docker / Amazon ECS Fargate / Amazon ECR |
+| DB | Amazon RDS MySQL 8.0 |
+| CI/CD | GitHub Actions (OIDC認証) |
+| 認証情報管理 | AWS Secrets Manager |
+| 監視 | Amazon CloudWatch Alarms / Dashboard |
+| ツール | Git / Terraform CLI / AWS CLI |
+
+## 設計のポイント
+
+**セキュリティ**
+- DB認証情報を `terraform.tfvars` の平文管理から **AWS Secrets Manager** に移行。ECSタスクが起動時にSecrets Managerから直接取得する構成
+- BastionサーバーはSSMセッションマネージャーのみでアクセス。SGの22番ポートは閉じている
+- NAT Gatewayを使わず **VPC Endpointで代替**することでプライベートサブネットからのAWS APIアクセスを閉域化しつつコストを削減
+- GitHub ActionsのAWS認証は **OIDC**を使用。アクセスキーをシークレットに保存しない
+
+**可用性**
+- ECS Fargateを **マルチAZ（1a / 1c）** に2タスク配置
+- RDSは **Multi-AZ構成**でフェイルオーバーに対応
+
+**監視・運用**
+- SLOに基づく **CloudWatch Alarm 6本**をTerraformでコード化（ALB・ECS・RDS）
+- SNSトピックと連携したメール通知で異常を自動検知
+- **CloudWatch Dashboard** でALB・ECS・RDSの主要メトリクスを一元可視化
+
+**IaC管理**
+- tfstateをS3バケットで一元管理、DynamoDBでステートロック（排他制御）
+- インフラ・アプリ・監視・CI/CDすべてをコードで再現可能
 
 ## モジュール構成
+
 ```
 modules/
-├── vpc/       # VPC, サブネット, SG, VPCエンドポイント
-├── alb/       # Application Load Balancer
-├── ecs/       # ECS Fargate, ECR, タスク定義
-├── rds/       # RDS MySQL (Multi-AZ)
-└── ec2/       # Bastionサーバー
+├── vpc/        # VPC, サブネット, SG, VPCエンドポイント
+├── alb/        # Application Load Balancer
+├── ecs/        # ECS Fargate, ECR, タスク定義, IAMロール
+├── rds/        # RDS MySQL (Multi-AZ)
+├── ec2/        # Bastionサーバー（SSMアクセス）
+├── secrets/    # AWS Secrets Manager（DB認証情報）
+└── monitoring/ # CloudWatch Alarms, SNS, Dashboard
 
-bootstrap/     # tfstate管理用S3バケット・DynamoDBテーブル（一度だけ手動apply）
+bootstrap/      # tfstate管理用S3バケット・DynamoDBテーブル（初回のみ手動apply）
 ```
 
-## Git運用方針
-- `feature/*` ブランチで作業し、節目ごとにGitHubへPush
-- 現在のブランチ: `feature/ecs-fargate`
+## CI/CD フロー
 
-## tfstateの管理
-- tfstateはS3バケット（`standard-3tier-tfstate`）で一元管理
-- DynamoDBテーブル（`standard-3tier-tfstate-lock`）でステートロック（排他制御）
-- `bootstrap/` は一度だけ手動で `terraform apply` する（CI/CDには含めない）
+```
+git push (app/** の変更)
+    ↓
+GitHub Actions
+    ├── Docker イメージをビルド
+    ├── ECR にプッシュ（latest タグ）
+    └── ECS サービスを強制デプロイ
+```
 
-## Amazon Q 引き継ぎ用コンテキスト
-次回セッション開始時に以下を伝えると作業をスムーズに再開できる。
+- AWS認証はOIDCを使用（アクセスキー不要）
+- `app/**` 配下の変更時のみワークフローが発火
 
-- このREADMEを `@README.md` で読み込ませる
-- 現在の作業ブランチ・直前の作業内容を伝える
-- エラーが出ている場合はターミナルの出力をそのまま貼る
+## tfstate の管理
+
+| リソース | 用途 |
+|---|---|
+| S3バケット `standard-3tier-tfstate` | tfstateの一元管理 |
+| DynamoDBテーブル `standard-3tier-tfstate-lock` | ステートロック（排他制御） |
+
+`bootstrap/` は初回のみ手動で `terraform apply` する。CI/CDには含めない。
 
 ## 作業開始ルーティン
-1. `terraform apply` でインフラを再構築
+
+1. インフラを再構築する
    ```bash
    terraform apply
    ```
-2. ECRにイメージをプッシュ（GitHub Actionsを発火させる）
+2. ECRにイメージをプッシュする（GitHub Actionsを発火させる）
    ```bash
    echo "" >> app/README.md
    git add app/README.md
    git commit -m "ci: trigger deploy after terraform apply"
-   git push origin feature/ecs-fargate
+   git push origin main
    ```
 3. GitHub → Actions タブでワークフローの完了を確認
-4. ALBのDNS名にアクセスしてアプリの動作確認
+4. `http://<ALB_DNS_NAME>` にアクセスしてアプリの動作確認
 
-## terraform destroy後の再構築手順
+## terraform destroy 後の再構築手順
+
 1. `terraform apply` でインフラを再構築
-2. `app/` 配下のファイルを少し変更してコミット＆プッシュ（GitHub Actionsが発火してECRにイメージをプッシュ＆ECSにデプロイ）
+2. `app/` 配下を少し変更してコミット＆プッシュ（GitHub Actionsが発火してECRにイメージをプッシュ＆ECSにデプロイ）
 
-※ RDSのエンドポイントはTerraformが自動でECSに渡すのでコードの修正は不要
-※ ECRのイメージは削除されるので必ずStep 2が必要
-※ `bootstrap/` のS3・DynamoDBは `terraform destroy` の対象外なので再applyは不要
+- RDSのエンドポイントはTerraformが自動でECSに渡すのでコードの修正は不要
+- ECRのイメージは削除されるので必ずStep 2が必要
+- `bootstrap/` のS3・DynamoDBは `terraform destroy` の対象外なので再applyは不要
+
 ## アーキテクチャ図
+
 ```mermaid
 graph TD
-    %% コンポーネントの定義
     User[👤 User / Internet]
     IGW[Internet Gateway]
     ALB[Application Load Balancer]
 
     subgraph VPC [VPC]
-        %% VPCエンドポイントを中央に配置するためのサブグラフ
         subgraph VPCE [VPC Endpoints]
             ECR_API[ecr.api]
             ECR_DKR[ecr.dkr]
             LOGS[logs]
         end
 
-        %% S3をVPCEの直下に配置
         AWS_S3[(Amazon S3)]
 
-        %% --- 1aのエリア ---
         subgraph AZ_1a [Availability Zone 1a]
-            Fargate1[ECS Fargate Task - 1a]
-            RDS_1a[(Amazon RDS MySQL - 1a)]
+            Fargate1[ECS Fargate Task]
+            RDS_1a[(RDS MySQL - Primary)]
         end
-        
-        %% --- 1cのエリア ---
+
         subgraph AZ_1c [Availability Zone 1c]
-            Fargate2[ECS Fargate Task - 1c]
-            RDS_1c[(Amazon RDS MySQL - 1c)]
+            Fargate2[ECS Fargate Task]
+            RDS_1c[(RDS MySQL - Standby)]
         end
     end
 
+    SecretsManager[(Secrets Manager)]
     AWS_ECR[(Amazon ECR)]
-    AWS_CW[(Amazon CloudWatch)]
+    AWS_CW[(CloudWatch\nAlarms / Dashboard)]
 
-    subgraph TFSTATE [Terraform State Management]
-        S3_TFSTATE[(S3 Bucket\ntfstate)]
+    subgraph TFSTATE [Terraform State]
+        S3_TFSTATE[(S3\ntfstate)]
         DYNAMO[(DynamoDB\nState Lock)]
     end
 
-    %% --- 通信の流れ ---
-    User -->|HTTP port 80| IGW
+    User -->|HTTP :80| IGW
     IGW --> ALB
-    
-    ALB -->|HTTP port 8000| Fargate1
-    ALB -->|HTTP port 8000| Fargate2
+    ALB -->|HTTP :8000| Fargate1
+    ALB -->|HTTP :8000| Fargate2
 
-    %% アプリからDBへのセキュアな通信
-    Fargate1 -->|MySQL port 3306| RDS_1a
-    Fargate2 -->|MySQL port 3306| RDS_1c
-    
-    %% RDS間のマルチAZ同期
+    Fargate1 -->|MySQL :3306| RDS_1a
+    Fargate2 -->|MySQL :3306| RDS_1c
     RDS_1a -. Multi-AZ Replication .-> RDS_1c
 
-    %% 1a, 1c両方からエンドポイントを経由する流れ
-    Fargate1 -->|HTTPS port 443| ECR_API
-    Fargate1 -->|HTTPS port 443| ECR_DKR
-    Fargate1 -->|HTTPS port 443| LOGS
+    Fargate1 -->|HTTPS :443| ECR_API
+    Fargate1 -->|HTTPS :443| ECR_DKR
+    Fargate1 -->|HTTPS :443| LOGS
+    Fargate2 -->|HTTPS :443| ECR_API
+    Fargate2 -->|HTTPS :443| ECR_DKR
+    Fargate2 -->|HTTPS :443| LOGS
 
-    Fargate2 -->|HTTPS port 443| ECR_API
-    Fargate2 -->|HTTPS port 443| ECR_DKR
-    Fargate2 -->|HTTPS port 443| LOGS
+    Fargate1 -->|取得| SecretsManager
+    Fargate2 -->|取得| SecretsManager
 
-    %% エンドポイントからAWS各サービスへ
     ECR_API -.-> AWS_ECR
     ECR_DKR -.-> AWS_ECR
     LOGS -.-> AWS_CW
-    
-    %% FargateからS3へ（点線で表現）
     Fargate1 -.-> AWS_S3
     Fargate2 -.-> AWS_S3
 
-    %% TerraformからState管理へ
-    Terraform -->|read/write tfstate| S3_TFSTATE
+    Terraform -->|read/write| S3_TFSTATE
     Terraform -->|lock/unlock| DYNAMO
 
-    %% --- レイアウト調整用の不可視リンク ---
     VPCE ~~~ AWS_S3
     AZ_1a ~~~ VPCE
     VPCE ~~~ AZ_1c
 ```
+
+## Amazon Q 引き継ぎ用コンテキスト
+
+- このREADMEを `@README.md` で読み込ませる
+- 現在の作業ブランチ・直前の作業内容を伝える
+- エラーが出ている場合はターミナルの出力をそのまま貼る

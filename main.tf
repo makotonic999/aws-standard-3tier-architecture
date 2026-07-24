@@ -12,6 +12,13 @@ module "ec2" {
   bastion_sg_id       = module.vpc.bastion_sg_id
 }
 
+# Secrets module
+module "secrets" {
+  source      = "./modules/secrets"
+  db_username = var.db_username
+  db_password = var.db_password
+}
+
 # ECS/ECR module
 module "ecs" {
   source                   = "./modules/ecs"
@@ -24,8 +31,7 @@ module "ecs" {
   target_group_arn         = module.alb.target_group_arn
   alb_listener_http_arn    = module.alb.alb_listener_http_arn
   db_host                  = module.rds.db_endpoint
-  db_user                  = var.db_username
-  db_password              = var.db_password
+  secret_arn               = module.secrets.secret_arn
 }
 
 # ALB module

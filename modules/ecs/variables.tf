@@ -44,13 +44,7 @@ variable "db_host" {
   description = "RDS endpoint hostname"
 }
 
-variable "db_user" {
+variable "secret_arn" {
   type        = string
-  description = "RDS master username"
-}
-
-variable "db_password" {
-  type        = string
-  sensitive   = true
-  description = "RDS master password"
+  description = "ARN of the Secrets Manager secret for DB credentials"
 }

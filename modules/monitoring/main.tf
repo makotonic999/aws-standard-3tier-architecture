@@ -143,6 +143,102 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   ok_actions    = [aws_sns_topic.alarm.arn]
 }
 
+# ===================================================
+# CloudWatch Dashboard
+# ===================================================
+resource "aws_cloudwatch_dashboard" "main" {
+  dashboard_name = "standard-webapp-dashboard"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "ALB 5XX Error Count"
+          region = "ap-northeast-1"
+          metrics = [["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", var.alb_arn_suffix, "TargetGroup", var.target_group_arn_suffix]]
+          stat   = "Sum"
+          period = 60
+        }
+      },
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "ALB Latency"
+          region = "ap-northeast-1"
+          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix, "TargetGroup", var.target_group_arn_suffix]]
+          stat   = "Average"
+          period = 60
+        }
+      },
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "ALB Request Count"
+          region = "ap-northeast-1"
+          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix, "TargetGroup", var.target_group_arn_suffix]]
+          stat   = "Sum"
+          period = 60
+        }
+      },
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "ECS CPU Utilization"
+          region = "ap-northeast-1"
+          metrics = [["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", var.ecs_service_name]]
+          stat   = "Average"
+          period = 60
+        }
+      },
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "ECS Memory Utilization"
+          region = "ap-northeast-1"
+          metrics = [["AWS/ECS", "MemoryUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", var.ecs_service_name]]
+          stat   = "Average"
+          period = 60
+        }
+      },
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "RDS CPU Utilization"
+          region = "ap-northeast-1"
+          metrics = [["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", var.db_identifier]]
+          stat   = "Average"
+          period = 60
+        }
+      },
+      {
+        type   = "metric"
+        width  = 8
+        height = 6
+        properties = {
+          title  = "RDS Free Storage Space"
+          region = "ap-northeast-1"
+          metrics = [["AWS/RDS", "FreeStorageSpace", "DBInstanceIdentifier", var.db_identifier]]
+          stat   = "Average"
+          period = 60
+        }
+      }
+    ]
+  })
+}
+
 resource "aws_cloudwatch_metric_alarm" "rds_storage" {
   alarm_name          = "standard-rds-storage-low"
   alarm_description   = "RDS free storage space is below 5GB"
