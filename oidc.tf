@@ -74,11 +74,53 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     resources = ["*"]
   }
 
-  # Permission required for GitHub Actions to pass IAM roles to ECS tasks
+  # Permissions required for Terraform to manage tfstate
   statement {
     effect = "Allow"
     actions = [
-      "iam:PassRole"
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      "arn:aws:s3:::standard-3tier-tfstate",
+      "arn:aws:s3:::standard-3tier-tfstate/*"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem"
+    ]
+    resources = ["arn:aws:dynamodb:ap-northeast-1:*:table/standard-3tier-tfstate-lock"]
+  }
+
+  # Permissions required for Terraform plan (read-only on all managed resources)
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:Describe*",
+      "elasticloadbalancing:Describe*",
+      "ecs:Describe*",
+      "ecs:List*",
+      "rds:Describe*",
+      "secretsmanager:Describe*",
+      "secretsmanager:GetSecretValue",
+      "cloudwatch:Describe*",
+      "cloudwatch:GetDashboard",
+      "sns:GetTopicAttributes",
+      "sns:ListSubscriptionsByTopic",
+      "iam:GetRole",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies",
+      "iam:GetRolePolicy",
+      "logs:Describe*"
     ]
     resources = ["*"]
   }
