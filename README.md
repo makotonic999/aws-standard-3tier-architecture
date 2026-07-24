@@ -34,8 +34,8 @@ Terraform を用いて AWS 上に本番運用を意識した3層アーキテク�
 - GitHub ActionsのAWS認証は **OIDC**を使用。アクセスキーをシークレットに保存しない
 
 **可用性**
-- ECS Fargateを **マルチAZ（1a / 1c）** に2タスク配置
-- RDSは **Multi-AZ構成**でフェイルオーバーに対応
+- ECS Fargateを **マルチAZ（1a / 1c）** に2タスク配置し、ALBがリクエストを分散
+- RDSはサブネットグループをマルチAZ構成で定義済み。本番環境では `multi_az = true` を有効化することでフェイルオーバーに対応できる構成としている（本リポジトリは学習・コスト最適化のため無効化）
 
 **監視・運用**
 - SLOに基づく **CloudWatch Alarm 6本**をTerraformでコード化（ALB・ECS・RDS）
