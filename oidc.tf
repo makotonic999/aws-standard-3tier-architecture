@@ -2,8 +2,8 @@
 # 1. GitHub OIDC Identity Provider Configuration
 # ------------------------------------------------------------------------------
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # GitHub's OIDC thumbprint. Securely managed by AWS, this fixed value is standard.
   thumbprint_list = [] # AWS now automatically manages thumbprints
 }
